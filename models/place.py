@@ -24,6 +24,9 @@ class Place(BaseModel, Base):
     if getenv('HBNB_TYPE_STORAGE') == 'db':
         reviews = relationship('Review',
                                backref='state', cascade='all, delete')
+
+        amenities = relationship('Amenity',
+                                 secondary="place_amenity", viewonly=False)
     else:
         @property
         def reviews(self):
@@ -39,3 +42,23 @@ class Place(BaseModel, Base):
                 if review.place_id == self.id:
                     reviews_list.append(review)
             return reviews_list
+
+        @property
+        def amenities(self):
+            """Getter method for reviews Return: reviews list """
+            from models import storage
+            from models.amenities import Amenity
+            save_amenities = storage.all(Amenity)
+            obj_amenities = []
+
+            for obj in save_amenities.values():
+                if obj.id in amenity_ids:
+                    obj_amenities.append(obj)
+            return obj_amenities
+
+        @amenities.setter
+        def amenities(self, obj):
+            """obj inside """
+            from models.amenities import Amenity
+            if isinstance(obj, Amenity):
+                amenity_ids.append(obj.id)
