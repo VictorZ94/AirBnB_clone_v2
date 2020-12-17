@@ -1,65 +1,53 @@
 #!/usr/bin/python3
-""" Module for testing file storage"""
+""" Module for testing db storage"""
 import unittest
 from models.base_model import BaseModel
-from models.state import State
-from models.city import City
-from models.user import User
-from models.review import Review
-from models.place import Place
+from models import storage
+from models.base_model import Base
 from models.amenity import Amenity
+from models.city import City
+from models.place import Place
+from models.review import Review
+from models.state import State
+from models.user import User
 from models.engine.db_storage import DBStorage
-from os import getenv
+import os
 import MySQLdb
-import pep8
-import sys
-
-if getenv("HBNB_TYPE_STORAGE") == "db":
-    db = MySQLdb.connect(
-        host=getenv("HBNB_MYSQL_HOST"),
-        passwd=getenv("HBNB_MYSQL_PWD"), user=getenv("HBNB_MYSQL_USER"),
-        db=getenv("HBNB_MYSQL_DB"))
-    cursor_objects = db.cursor()
 
 
-class test_DBStorage(unittest.TestCase):
-    """ Class to test the file storage method """
-    if getenv("HBNB_TYPE_STORAGE") == "db":
-        def test_base_pep8(self):
-            """Test for pep8"""
-            pep8style = pep8.StyleGuide(quiet=True)
-            result = pep8style.check_files(['./models/engine/db_storage.py'])
-            self.assertEqual(result.total_errors, 0)
+tbl_cls = {"states": State, "cities": City, "places": Place,
+           "amenities": Amenity, "users": User, "reviews": Review}
 
-        def test_docstring(self):
-            """ Test doc strings """
-            self.assertIsNotNone(DBStorage.__doc__)
-            self.assertIsNotNone(DBStorage.__init__.__doc__)
-            self.assertIsNotNone(DBStorage.all.__doc__)
-            self.assertIsNotNone(DBStorage.new.__doc__)
-            self.assertIsNotNone(DBStorage.save.__doc__)
-            self.assertIsNotNone(DBStorage.delete.__doc__)
-            self.assertIsNotNone(DBStorage.reload.__doc__)
 
-        def test_create(self):
-            """ Test create a class """
-            storage = DBStorage()
-            storage.reload()
-            initial_count = len(storage.all(State))
-            initial_db = cursor_objects.execute(
-                """SELECT COUNT(id) FROM states;""")
+class test_dbStorage(unittest.TestCase):
+    """Tests for db storage mode"""
 
-            self.assertTrue(initial_count == 0)
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != "db",
+                     "only test for db storage, not file storage")
+    def test_doc(self):
+        """Test docstrings"""
+        self.assertIsNotNone(DBStorage.__doc__)
 
-            new_state = State(name="California")
-            storage.reload()
-            new_state.save()
-            storage.save()
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != "db",
+                     "only test for db storage, not file storage")
+    def test_all(self):
+        """Test all method"""
+        d = storage.all()
+        self.assertTrue(type(d), dict)
 
-            final_count = len(storage.all(State))
-            final_db = cursor_objects.execute(
-                """SELECT COUNT(id) FROM states;""")
-
-            self.assertEqual(final_count, final_db)
-
-            self.assertEqual(initial_count + 1, final_db)
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != "db",
+                     "only test for db storage, not file storage")
+    def test_new(self):
+        """Test new method"""
+        db = MySQLdb.connect(user=os.getenv('HBNB_MYSQL_USER'),
+                             passwd=os.getenv('HBNB_MYSQL_PWD'),
+                             db=os.getenv('HBNB_MYSQL_DB'))
+        cur = db.cursor()
+        for tbl in tbl_cls:
+            rows = cur.execute("SELECT COUNT(*) FROM {}".format(tbl))
+            obj1 = tbl_cls[tbl]()
+            storage.new(obj1)
+            rows_final = cur.execute("SELECT COUNT(*) FROM {}".format(tbl))
+            self.assertTrue(rows + 1, rows_final)
+        cur.close()
+        db.close()
