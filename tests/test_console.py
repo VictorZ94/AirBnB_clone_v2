@@ -1,109 +1,123 @@
 #!/usr/bin/python3
-""" Module for testing file storage"""
-import unittest
-from models.base_model import BaseModel
-from models import storage
+""" Test case for console """
 import os
+import sys
+import pep8
+import console
+import MySQLdb
+import unittest
+from io import StringIO
+from models.user import User
+from models.city import City
+from models.place import Place
+from models.state import State
+from unittest.mock import patch
+from console import HBNBCommand
+from models.review import Review
+from models.amenity import Amenity
+from models.__init__ import storage
+from models.base_model import BaseModel
+from models.engine.file_storage import FileStorage
 
 
-class test_fileStorage(unittest.TestCase):
-    """ Class to test the file storage method """
+""" Test pep8 style validation """
+
+
+class TestPep(unittest.TestCase):
+    def test_pep(self):
+        """ test base and test_base for pep8 conformance """
+        p = pep8.StyleGuide(quiet=True)
+        f1 = 'console.py'
+        f2 = 'tests/test_console.py'
+        res = p.check_files([f1, f2])
+        self.assertEqual(res.total_errors, 0,
+                         "Found code style errors (and warning).")
+
+
+class TestDoc(unittest.TestCase):
+    """ check for documentation """
+
+    def test_mod_doc(self):
+        """ check for module documentation """
+        self.assertTrue(len(console.__doc__) > 0)
+
+    def test_cls_doc(self):
+        """ check for documentation """
+        self.assertTrue(len(HBNBCommand.__doc__) > 0)
+
+    def test_metd_doc(self):
+        """ check for method documentation """
+        for fn in dir(HBNBCommand):
+            self.assertTrue(len(fn.__doc__) > 0)
+
+
+class ConsoleTestClass(unittest.TestCase):
+    """ Class to test case of input in console """
 
     def setUp(self):
-        """ Set up test environment """
-        del_list = []
-        for key in storage._FileStorage__objects.keys():
-            del_list.append(key)
-        for key in del_list:
-            del storage._FileStorage__objects[key]
+        """ create instance global """
+        self.obj = HBNBCommand()
 
     def tearDown(self):
-        """ Remove storage file at end of tests """
-        try:
-            os.remove('file.json')
-        except:
-            pass
+        """ Clean all test case """
+        pass
 
-    def test_obj_list_empty(self):
-        """ __objects is initially empty """
-        self.assertEqual(len(storage.all()), 0)
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') == 'db',
+                     'environment = file')
+    def test_create(self):
+        """ Test Case to create a object from a class """
 
-    def test_new(self):
-        """ New object is correctly added to __objects """
-        new = BaseModel()
-        for obj in storage.all().values():
-            temp = obj
-            self.assertTrue(temp is obj)
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create')
+            self.assertEqual('** class name missing **\n', _cmd.getvalue())
 
-    def test_all(self):
-        """ __objects is properly returned """
-        new = BaseModel()
-        temp = storage.all()
-        self.assertIsInstance(temp, dict)
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create Class')
+            self.assertEqual('** class doesn\'t exist **\n',
+                             _cmd.getvalue())
 
-    def test_base_model_instantiation(self):
-        """ File is not created on BaseModel save """
-        new = BaseModel()
-        self.assertFalse(os.path.exists('file.json'))
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create State name="New_York"')
+            self.assertTrue(len(_cmd.getvalue()) > 0)
 
-    def test_empty(self):
-        """ Data is saved to file """
-        new = BaseModel()
-        thing = new.to_dict()
-        new.save()
-        new2 = BaseModel(**thing)
-        self.assertNotEqual(os.path.getsize('file.json'), 0)
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('all State')
+            self.assertTrue(len(_cmd.getvalue()) > 0)
 
-    def test_save(self):
-        """ FileStorage save method """
-        new = BaseModel()
-        storage.save()
-        self.assertTrue(os.path.exists('file.json'))
+    def test_exec_file(self):
+        """ Check if file have permissions to execute """""
+        # Check for read access
+        is_read = os.access('console.py', os.R_OK)
+        self.assertTrue(is_read)
+        # Check for write access
+        is_write = os.access('console.py', os.W_OK)
+        self.assertTrue(is_write)
+        # Check for execution access
+        is_exec = os.access('console.py', os.X_OK)
+        self.assertTrue(is_exec)
 
-    def test_reload(self):
-        """ Storage file is successfully loaded to __objects """
-        new = BaseModel()
-        storage.save()
-        storage.reload()
-        for obj in storage.all().values():
-            loaded = obj
-            self.assertEqual(new.to_dict()['id'], loaded.to_dict()['id'])
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != 'db',
+                     'environment = db')
+    def test_create_filestorage(self):
+        """ Test Case to create a object from a class """
 
-    def test_reload_empty(self):
-        """ Load from an empty file """
-        with open('file.json', 'w') as f:
-            pass
-        with self.assertRaises(ValueError):
-            storage.reload()
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create')
+            self.assertEqual('** class name missing **\n', _cmd.getvalue())
 
-    def test_reload_from_nonexistent(self):
-        """ Nothing happens if file does not exist """
-        self.assertEqual(storage.reload(), None)
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create Class')
+            self.assertEqual('** class doesn\'t exist **\n',
+                             _cmd.getvalue())
 
-    def test_base_model_save(self):
-        """ BaseModel save method calls storage save """
-        new = BaseModel()
-        new.save()
-        self.assertTrue(os.path.exists('file.json'))
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('create State name="Texas"')
+            self.assertTrue(len(_cmd.getvalue()) > 0)
 
-    def test_type_path(self):
-        """ Confirm __file_path is string """
-        self.assertEqual(type(storage._FileStorage__file_path), str)
+        with patch('sys.stdout', new=StringIO()) as _cmd:
+            self.obj.onecmd('all State')
+            self.assertTrue(len(_cmd.getvalue()) > 0)
 
-    def test_type_objects(self):
-        """ Confirm __objects is a dict """
-        self.assertEqual(type(storage.all()), dict)
 
-    def test_key_format(self):
-        """ Key is properly formatted """
-        new = BaseModel()
-        _id = new.to_dict()['id']
-        for key in storage.all().keys():
-            temp = key
-            self.assertEqual(temp, 'BaseModel' + '.' + _id)
-
-    def test_storage_var_created(self):
-        """ FileStorage object storage created """
-        from models.engine.file_storage import FileStorage
-        print(type(storage))
-        self.assertEqual(type(storage), FileStorage)
+if __name__ == '__main__':
+    unittest.main()
