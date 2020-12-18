@@ -1,123 +1,224 @@
 #!/usr/bin/python3
-""" Test case for console """
-import os
-import sys
-import pep8
-import console
-import MySQLdb
+"""Unittest for Console"""
 import unittest
+import sys
+import contextlib
+import os
+import models
+from console import HBNBCommand
 from io import StringIO
+from datetime import datetime
+from models.base_model import BaseModel
+from models.amenity import Amenity
 from models.user import User
 from models.city import City
-from models.place import Place
 from models.state import State
-from unittest.mock import patch
-from console import HBNBCommand
+from models.place import Place
 from models.review import Review
-from models.amenity import Amenity
-from models.__init__ import storage
-from models.base_model import BaseModel
 from models.engine.file_storage import FileStorage
+from unittest.mock import patch
+import MySQLdb
+
+tbl_cls = {"states": State, "cities": City, "places": Place,
+           "amenities": Amenity, "users": User, "reviews": Review}
 
 
-""" Test pep8 style validation """
+class TestConsole(unittest.TestCase):
+    """Unittest for console"""
 
+    def test_quit(self):
+        """Testing quit method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("quit")
+            self.assertEqual(buf.getvalue(), "")
 
-class TestPep(unittest.TestCase):
-    def test_pep(self):
-        """ test base and test_base for pep8 conformance """
-        p = pep8.StyleGuide(quiet=True)
-        f1 = 'console.py'
-        f2 = 'tests/test_console.py'
-        res = p.check_files([f1, f2])
-        self.assertEqual(res.total_errors, 0,
-                         "Found code style errors (and warning).")
+    def test_EOF(self):
+        """Testing EOF method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("EOF")
+            self.assertEqual(buf.getvalue(), "")
 
+    def test_emptyline(self):
+        """Testing emptyline input"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("")
+            self.assertEqual(buf.getvalue(), "")
+            HBNBCommand().onecmd("      ")
+            self.assertEqual(buf.getvalue(), "")
 
-class TestDoc(unittest.TestCase):
-    """ check for documentation """
-
-    def test_mod_doc(self):
-        """ check for module documentation """
-        self.assertTrue(len(console.__doc__) > 0)
-
-    def test_cls_doc(self):
-        """ check for documentation """
-        self.assertTrue(len(HBNBCommand.__doc__) > 0)
-
-    def test_metd_doc(self):
-        """ check for method documentation """
-        for fn in dir(HBNBCommand):
-            self.assertTrue(len(fn.__doc__) > 0)
-
-
-class ConsoleTestClass(unittest.TestCase):
-    """ Class to test case of input in console """
-
-    def setUp(self):
-        """ create instance global """
-        self.obj = HBNBCommand()
-
-    def tearDown(self):
-        """ Clean all test case """
-        pass
-
-    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') == 'db',
-                     'environment = file')
     def test_create(self):
-        """ Test Case to create a object from a class """
+        """Testing create method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("create")
+            expected = "** class name missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create')
-            self.assertEqual('** class name missing **\n', _cmd.getvalue())
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("create Hello")
+            expected = "** class doesn't exist **\n"
+            self.assertEqual(buf.getvalue(), expected)
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create Class')
-            self.assertEqual('** class doesn\'t exist **\n',
-                             _cmd.getvalue())
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd('create State name="Texas"')
+            st_id = buf.getvalue()
+            self.assertNotEqual(st_id, "")
+            d_st = models.storage.all(State)
+            k_st = list(d_st.keys())
+            st_id = k_st[0].split(".")[1]
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create State name="New_York"')
-            self.assertTrue(len(_cmd.getvalue()) > 0)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd('create City name="Houston" state_id={}'.
+                                 format(st_id))
+            ct_id = buf.getvalue()
+            self.assertNotEqual(ct_id, "")
+            d_ct = models.storage.all(City)
+            k_ct = list(d_ct.keys())
+            ct_id = k_ct[0].split(".")[1]
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('all State')
-            self.assertTrue(len(_cmd.getvalue()) > 0)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd('create User email="al@al.com" password="pd"')
+            u_id = buf.getvalue()
+            self.assertNotEqual(u_id, "")
+            d_us = models.storage.all(User)
+            k_us = list(d_us.keys())
+            u_id = k_us[0].split(".")[1]
 
-    def test_exec_file(self):
-        """ Check if file have permissions to execute """""
-        # Check for read access
-        is_read = os.access('console.py', os.R_OK)
-        self.assertTrue(is_read)
-        # Check for write access
-        is_write = os.access('console.py', os.W_OK)
-        self.assertTrue(is_write)
-        # Check for execution access
-        is_exec = os.access('console.py', os.X_OK)
-        self.assertTrue(is_exec)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            self.assertNotEqual(ct_id, "")
+            HBNBCommand().onecmd('create Place name="R" city_id="{}"\
+            user_id="{}"'.format(ct_id, u_id))
+            pl_id = buf.getvalue()
+            self.assertNotEqual(pl_id, "")
+            d_pl = models.storage.all(Place)
+            k_pl = list(d_pl.keys())
+            pl_id = k_pl[0].split(".")[1]
 
-    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != 'db',
-                     'environment = db')
-    def test_create_filestorage(self):
-        """ Test Case to create a object from a class """
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd('create Amenity name="Kitchen"')
+            self.assertNotEqual(buf.getvalue(), "")
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create')
-            self.assertEqual('** class name missing **\n', _cmd.getvalue())
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd('create Review place_id="{}" user_id="{}"\
+            text="ok"'.format(pl_id, u_id))
+            self.assertNotEqual(buf.getvalue(), "")
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create Class')
-            self.assertEqual('** class doesn\'t exist **\n',
-                             _cmd.getvalue())
+    def test_show(self):
+        """Testing show method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("show")
+            expected = "** class name missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("show Hola")
+            expected = "** class doesn't exist **\n"
+            self.assertEqual(buf.getvalue(), expected)
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('create State name="Texas"')
-            self.assertTrue(len(_cmd.getvalue()) > 0)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("show BaseModel")
+            expected = "** instance id missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
 
-        with patch('sys.stdout', new=StringIO()) as _cmd:
-            self.obj.onecmd('all State')
-            self.assertTrue(len(_cmd.getvalue()) > 0)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("show BaseModel hola")
+            expected = "** no instance found **\n"
+            self.assertEqual(buf.getvalue(), expected)
+        ls = models.storage.all().values()
+        if len(ls) > 0:
+            obj_id = str(list(ls)[0].id)
+            obj_class = list(ls)[0].__class__.__name__
+            arg = "show " + obj_class + " " + obj_id
+            with patch('sys.stdout', new=StringIO()) as buf:
+                HBNBCommand().onecmd(arg)
+                self.assertNotEqual(buf.getvalue(), "")
 
+    def test_destroy(self):
+        """Testing destroy method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("destroy")
+            expected = "** class name missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("destroy Hola")
+            expected = "** class doesn't exist **\n"
+            self.assertEqual(buf.getvalue(), expected)
 
-if __name__ == '__main__':
-    unittest.main()
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("destroy BaseModel")
+            expected = "** instance id missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
+
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("destroy BaseModel hola")
+            expected = "** no instance found **\n"
+            self.assertEqual(buf.getvalue(), expected)
+        ls = models.storage.all().values()
+        if len(ls) > 0:
+            obj_id = str(list(ls)[0].id)
+            obj_class = list(ls)[0].__class__.__name__
+            arg = "destroy " + obj_class + " " + obj_id
+            key = obj_class + "." + obj_id
+            # with patch('sys.stdout', new=StringIO()) as buf:
+            #     HBNBCommand().onecmd(arg)
+            #     self.assertEqual(buf.getvalue(), "")
+            #     self.assertNotIn(key, models.storage.all())
+
+    def test_all(self):
+        """Testing method all"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("all Hola")
+            expected = "** class doesn't exist **\n"
+            self.assertEqual(buf.getvalue(), expected)
+
+    def test_update(self):
+        """Testing update method"""
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("update")
+            expected = "** class name missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("update Hola")
+            expected = "** class doesn't exist **\n"
+            self.assertEqual(buf.getvalue(), expected)
+
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("update BaseModel")
+            expected = "** instance id missing **\n"
+            self.assertEqual(buf.getvalue(), expected)
+
+        with patch('sys.stdout', new=StringIO()) as buf:
+            HBNBCommand().onecmd("update BaseModel hola")
+            expected = "** no instance found **\n"
+            self.assertEqual(buf.getvalue(), expected)
+
+        ls = models.storage.all().values()
+        if len(ls) > 0:
+            obj_id = str(list(ls)[0].id)
+            obj_class = list(ls)[0].__class__.__name__
+            arg = "update " + obj_class + " " + obj_id
+            key = obj_class + "." + obj_id
+            with patch('sys.stdout', new=StringIO()) as buf:
+                HBNBCommand().onecmd(arg)
+                expected = "** attribute name missing **\n"
+                self.assertEqual(buf.getvalue(), expected)
+            with patch('sys.stdout', new=StringIO()) as buf:
+                arg2 = arg + " " + "Age"
+                HBNBCommand().onecmd(arg2)
+                expected = "** value missing **\n"
+                self.assertEqual(buf.getvalue(), expected)
+
+            # with patch('sys.stdout', new=StringIO()) as buf:
+            #     arg3 = arg2 + " " + "30"
+            #     HBNBCommand().onecmd(arg3)
+            #     self.assertEqual(buf.getvalue(), "")
+
+    def test_count(self):
+        """Testing count method"""
+        ls = models.storage.all().values()
+        if len(ls) > 0:
+            obj_id = str(list(ls)[0].id)
+            obj_class = list(ls)[0].__class__.__name__
+            arg = "count " + obj_class
+            key = obj_class + "." + obj_id
+            with patch('sys.stdout', new=StringIO()) as buf:
+                HBNBCommand().onecmd(arg)
+                self.assertNotEqual(buf.getvalue(), 0)
