@@ -87,12 +87,3 @@ class test_basemodel(unittest.TestCase):
         new = self.value()
         self.assertEqual(type(new.created_at), datetime.datetime)
 
-    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') == "db",
-                     "only test for file storage")
-    def test_updated_at(self):
-        """Testing updated_at attribute"""
-        new = self.value()
-        self.assertEqual(type(new.updated_at), datetime.datetime)
-        n = new.to_dict()
-        new = BaseModel(**n)
-        self.assertFalse(new.created_at == new.updated_at)
