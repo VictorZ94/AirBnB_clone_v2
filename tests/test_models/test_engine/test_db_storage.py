@@ -1,42 +1,31 @@
 #!/usr/bin/python3
-"""test for file storage"""
+""" Module for testing DBstorage"""
 import unittest
-import pep8
+from models.base_model import BaseModel
+from models import storage
+import os
+from models.state import State
 
 
-class TestDBStorage(unittest.TestCase):
-    '''Tests the DBStorage storage engine'''
+class test_dbstorage(unittest.TestCase):
+    """ Class to test the DBstorage method """
 
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != 'db',
+                     "Cannot storage if db is active")
     def setUp(self):
-        """SetUp env for test"""
-        pass
+        """ Set up test environment """
+        del_list = []
+        for key in storage.all(self).keys():
+            del_list.append(key)
+        for key in del_list:
+            storage._DBStorage__session.delete(storage.all(self)[key])
+            storage._DBStorage__session.commit()
 
-    def tearDown(self):
-        """teardown"""
-        pass
+    def test_reload_from_nonexistent(self):
+        """ Nothing happens if file does not exist """
+        self.assertEqual(storage.reload(), None)
 
-    def test_all(self):
-        """Test class method all()"""
-        pass
-
-    def test_new(self):
-        """Test new method"""
-        pass
-
-    def test_save(self):
-        """Test save method
-        """
-        pass
-
-    def test_delete(self):
-        """Tests delete
-        """
-        pass
-
-    def test_reload(self):
-        """Tests reload
-        """
-        pass
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_storage_var_created(self):
+        """ FileStorage object storage created """
+        from models.engine.db_storage import DBStorage
+        self.assertEqual(type(storage), DBStorage)
