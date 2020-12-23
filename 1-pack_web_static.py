@@ -2,7 +2,13 @@
 from fabric.api import *
 from datetime import datetime
 
+
 def do_pack():
+    """[summary]
+
+    Returns:
+        [type]: [description]
+    """
     try:
         date = datetime.now().strftime("%Y%m%d%H%M%S")
         local("mkdir -p versions")
