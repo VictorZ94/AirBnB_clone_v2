@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-# First app with flask
+"""First app with flask
+"""
 from flask import Flask
 
 
