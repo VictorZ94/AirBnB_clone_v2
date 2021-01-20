@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""[summary]
+""" fecthing data of db and display in HTML template
 """
 from flask import Flask, render_template
 from models import storage
