@@ -42,7 +42,7 @@ def show_python_text(text='is cool'):
 
 @app.route('/number/<int:n>')
 def only_int(n):
-    return '{} is number'.format(n)
+    return '{} is a number'.format(n)
 
 
 if __name__ == '__main__':
